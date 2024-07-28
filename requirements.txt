@@ -1,5 +1,3 @@
-pandas
 wandb
-flask
-runpod
+pandas
 requests
