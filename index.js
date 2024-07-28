@@ -146,20 +146,22 @@ app.post('/inference', async (req, res) => {
 });
 
 app.get('/wandb-data', async (req, res) => {
-    try {
         console.log('Endpoint /wandb-data reached');
-
+    try {
         // Extract query parameters
         const { projectName } = req.query;
 
-        console.log(`Request to wandb: ${req.query}`);
+        console.log(`Request to wandb: ${JSON.stringify(req.query)}`);
 
         if (!projectName) {
+            console.error('Project name is required');
             return res.status(400).send({ error: 'Project name is required' });
         }
 
         // Call the Python script with the provided parameter
         const command = `python test.py ${projectName}`;
+        console.log(`Executing command: ${command}`);
+
         exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Error executing script: ${error.message}`);
