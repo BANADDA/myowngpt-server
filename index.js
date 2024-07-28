@@ -146,44 +146,47 @@ app.post('/inference', async (req, res) => {
 });
 
 app.get('/wandb-data', async (req, res) => {
-    console.log('Endpoint /wandb-data reached');
+    try {
+        console.log('Endpoint /wandb-data reached');
 
-    // Extract query parameters
-    const { projectName } = req.query;
+        // Extract query parameters
+        const { projectName } = req.query;
 
-    console.log(`Request to wandb: ${req.query}`)
+        console.log(`Request to wandb: ${req.query}`);
 
-    if (!projectName) {
-        return res.status(400).send({ error: 'Project name is required' });
+        if (!projectName) {
+            return res.status(400).send({ error: 'Project name is required' });
+        }
+
+        // Call the Python script with the provided parameter
+        const command = `python test.py ${projectName}`;
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing script: ${error.message}`);
+                return res.status(500).send({ error: 'Failed to execute script' });
+            }
+            if (stderr) {
+                console.error(`Script error: ${stderr}`);
+                return res.status(500).send({ error: 'Script error' });
+            }
+
+            // Log the stdout to check the script's output
+            console.log(`Script output: ${stdout}`);
+
+            // Send the output from the Python script as JSON
+            try {
+                const data = JSON.parse(stdout);
+                console.log('Parsed data:', data);
+                return res.status(200).json(data);
+            } catch (err) {
+                console.error(`Failed to parse script output: ${err.message}`);
+                return res.status(500).send({ error: 'Failed to parse script output' });
+            }
+        });
+    } catch (err) {
+        console.error(`Unexpected error: ${err.message}`);
+        return res.status(500).send({ error: 'Unexpected error occurred' });
     }
-
-    // Call the Python script with the provided parameter
-    const command = `python test.py ${projectName}`;
-    exec(command, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing script: ${error.message}`);
-            res.status(500).send({ error: 'Failed to execute script' });
-            return;
-        }
-        if (stderr) {
-            console.error(`Script error: ${stderr}`);
-            res.status(500).send({ error: 'Script error' });
-            return;
-        }
-
-        // Log the stdout to check the script's output
-        console.log(`Script output: ${stdout}`);
-
-        // Send the output from the Python script as JSON
-        try {
-            const data = JSON.parse(stdout);
-            console.log('Parsed data:', data);
-            res.status(200).json(data);
-        } catch (err) {
-            console.error(`Failed to parse script output: ${err.message}`);
-            res.status(500).send({ error: 'Failed to parse script output' });
-        }
-    });
 });
 
 // app.get('/wandb-data', async (req, res) => {
