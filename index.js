@@ -151,6 +151,8 @@ app.get('/wandb-data', async (req, res) => {
     // Extract query parameters
     const { projectName } = req.query;
 
+    console.log(`Request to wandb: ${req.query}`)
+
     if (!projectName) {
         return res.status(400).send({ error: 'Project name is required' });
     }
