@@ -5,7 +5,7 @@ import tempfile
 from typing import Literal
 
 import pandas as pd
-from huggingface_hub import HfApi, create_repo
+from huggingface_hub import HfApi, HfHubError, create_repo
 
 
 class DatasetCreator:
@@ -97,29 +97,39 @@ class DatasetCreator:
         user = api.whoami(token=token)["name"]
         repo_id = f"{user}/{repo_name}"
         
-        create_repo(repo_id, repo_type="dataset", token=token, exist_ok=True)
-        
+        try:
+            create_repo(repo_id, repo_type="dataset", token=token, exist_ok=True)
+        except HfHubError as e:
+            print(f"Error creating repo: {e}")
+            raise
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             data_dir = os.path.join(tmp_dir, "data")
             os.makedirs(data_dir)
             
             parquet_path = os.path.join(data_dir, "train.parquet")
             self.processed_dataframe.to_parquet(parquet_path, index=False)
-            
+
+            print(f"Parquet path: {parquet_path}")
             if self.dataset_type == 'openelm':
                 jsonl_path = os.path.join(data_dir, "train.jsonl")
                 with open(jsonl_path, 'w') as f:
                     for _, row in self.processed_dataframe.iterrows():
                         json.dump({'messages': row['messages']}, f)
                         f.write('\n')
-            
-            api.upload_folder(
-                folder_path=data_dir,
-                repo_id=repo_id,
-                repo_type="dataset",
-                path_in_repo="data",
-                token=token
-            )
+
+            try:
+                api.upload_folder(
+                    folder_path=data_dir,
+                    repo_id=repo_id,
+                    repo_type="dataset",
+                    path_in_repo="data",
+                    token=token
+                )
+                print("Upload successful")
+            except Exception as e:
+                print(f"Error during upload: {e}")
+                raise
         
         return repo_id
 
@@ -174,5 +184,8 @@ if __name__ == "__main__":
     parser.add_argument('repo_name', type=str, help='Name of the repository to create/update on Hugging Face')
 
     args = parser.parse_args()
-    repo_id = create_and_upload_dataset(args.file_path, args.model_type, args.repo_name)
-    print(f"Repository ID: {repo_id}")
+    try:
+        repo_id = create_and_upload_dataset(args.file_path, args.model_type, args.repo_name)
+        print(f"Repository ID: {repo_id}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
