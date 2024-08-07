@@ -29,7 +29,6 @@ class DatasetCreator:
         try:
             creation_methods[model_type]()
             self.dataset_type = model_type
-            print(f"Dataset created successfully for model type: {model_type}.")
             return self.dataset_type
         except Exception as e:
             print(f"Error during dataset creation: {e}")
@@ -74,7 +73,6 @@ class DatasetCreator:
             repo_id = f"{user}/{repo_name}"
 
             create_repo(repo_id, repo_type="dataset", token=token, exist_ok=True)
-            print(f"Repository created with ID: {repo_id}")
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 data_dir = os.path.join(tmp_dir, "data")
@@ -98,7 +96,6 @@ class DatasetCreator:
                     token=token
                 )
             
-            print(f"Dataset uploaded successfully to repository: {repo_id}.")
             return repo_id
         except Exception as e:
             print(f"Error uploading to Hugging Face: {e}")
@@ -140,8 +137,7 @@ def create_and_upload_dataset(
     
     try:
         creator = DatasetCreator(dataframe, question_col, response_col)
-        dataset_type = creator.create_dataset(model_type)
-        print(f"Dataset created: {dataset_type}")
+        creator.create_dataset(model_type)
     except Exception as e:
         print(f"Error creating dataset: {e}")
         raise
@@ -149,7 +145,6 @@ def create_and_upload_dataset(
     try:
         hf_token = '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'
         repo_id = creator.upload_to_huggingface(hf_token, repo_name)
-        print(f"Repository ID: {repo_id}")
         return repo_id
     except Exception as e:
         print(f"Error uploading dataset to Hugging Face: {e}")
@@ -165,6 +160,6 @@ if __name__ == "__main__":
 
         args = parser.parse_args()
         repo_id = create_and_upload_dataset(args.file_path, args.model_type, args.repo_name)
-        print(f"Repository ID: {repo_id}")
+        print(repo_id)
     except Exception as e:
         print(f"Error in main execution: {e}")
