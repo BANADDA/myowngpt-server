@@ -2,3 +2,4 @@ wandb
 pandas
 requests
 huggingface_hub
+pyarrow
