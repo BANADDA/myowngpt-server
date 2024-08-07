@@ -10,6 +10,7 @@ const bcrypt = require('bcrypt');
 const { expressjwt: expressJwt } = require('express-jwt');
 const { 
     addTrainingJob, 
+    saveDatasetDetails,
     logMinerListening, 
     saveSystemDetails,
     saveCompletedJob, 
@@ -28,6 +29,19 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const port = process.env.PORT || 3000;
+
+const corsOptions = {
+    origin: 'https://www.yogpt.ai',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions))
 
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
@@ -49,6 +63,126 @@ app.get('/', (req, res) => {
     console.log("Hello server is live...");
     res.send('Hello World');
 });
+
+// Endpoint to create a dataset
+app.post('/create-dataset', upload.single('file'), async (req, res) => {
+    console.log("Dataset request: ", req.body);
+
+    const { datasetName, license, visibility, models, tags, submissionTime, fileName, fileSize, uploadedAt } = req.body;
+
+    // Validate incoming request data
+    if (!datasetName || !req.file || !models || models.length === 0) {
+        return res.status(400).json({ error: 'Invalid request data. Ensure datasetName, file, and models are provided.' });
+    }
+
+    const file = req.file;
+    const model = models[0]; // Use the first model in the array
+
+    // Use /tmp directory for file operations
+    const tempFilePath = path.join('/tmp', file.originalname);
+
+    // Save the uploaded file to a temporary location
+    fs.writeFileSync(tempFilePath, file.buffer);
+
+    // Log the dataset request
+    console.log("Dataset request: ", req.body);
+
+    // Call the Python script to create and upload the dataset
+    const pythonScript = 'dataset.py'; // Update this path to your actual Python script
+    const command = `python ${pythonScript} ${tempFilePath} ${model} ${datasetName}`;
+
+    exec(command, async (error, stdout, stderr) => {
+        // Delete the temporary file after the process is complete
+        fs.unlink(tempFilePath, (unlinkErr) => {
+            if (unlinkErr) {
+                console.error(`Error deleting temp file: ${unlinkErr.message}`);
+            } else {
+                console.log(`Temporary file deleted: ${tempFilePath}`);
+            }
+        });
+
+        if (error) {
+            console.error(`Error executing Python script: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to create dataset.' });
+        }
+        if (stderr) {
+            console.error(`Python script error: ${stderr}`);
+            return res.status(500).json({ error: 'Error in Python script execution.' });
+        }
+
+        // Assuming the Python script returns the repo_id
+        const repo_id = stdout.trim();
+
+        // Extract userId from the datasetName
+        const userId = datasetName.split('_')[0];
+
+        try {
+            // Save dataset details to Firestore
+            await saveDatasetDetails(datasetName, repo_id, userId, license, visibility, models, tags, submissionTime, fileSize, uploadedAt);
+            res.status(200).json({ repo_id });
+        } catch (saveError) {
+            console.error(`Error saving dataset details: ${saveError.message}`);
+            return res.status(500).json({ error: 'Failed to save dataset details.' });
+        }
+    });
+});
+
+// Endpoint to create a dataset
+// app.post('/create-dataset', upload.single('file'), async (req, res) => {
+//     const { datasetName, license, visibility, models, tags, submissionTime, fileName, fileSize, uploadedAt } = req.body;
+
+//     // Validate incoming request data
+//     if (!datasetName || !req.file || !models || models.length === 0) {
+//         return res.status(400).json({ error: 'Invalid request data. Ensure datasetName, file, and models are provided.' });
+//     }
+
+//     const file = req.file;
+//     const model = models[0]; // Use the first model in the array
+//     const tempFilePath = path.join(__dirname, 'uploads', file.originalname);
+
+//     // Save the uploaded file to a temporary location
+//     fs.writeFileSync(tempFilePath, file.buffer);
+
+//     // Call the Python script to create and upload the dataset
+//     const pythonScript = './dataset.py'; // Update this path to your actual Python script
+//     const command = `python ${pythonScript} ${tempFilePath} ${model} ${datasetName}`;
+
+//     exec(command, async (error, stdout, stderr) => {
+//         // Delete the temporary file after the process is complete
+//         fs.unlink(tempFilePath, (unlinkErr) => {
+//             if (unlinkErr) {
+//                 console.error(`Error deleting temp file: ${unlinkErr.message}`);
+//             } else {
+//                 console.log(`Temporary file deleted: ${tempFilePath}`);
+//             }
+//         });
+
+//         if (error) {
+//             console.error(`Error executing Python script: ${error.message}`);
+//             return res.status(500).json({ error: 'Failed to create dataset.' });
+//         }
+//         if (stderr) {
+//             console.error(`Python script error: ${stderr}`);
+//             return res.status(500).json({ error: 'Error in Python script execution.' });
+//         }
+
+//         // Assuming the Python script returns the repo_id
+//         const repo_id = stdout.trim();
+
+//         // Extract userId from the datasetName
+//         const userId = datasetName.split('_')[0];
+
+//         try {
+//             // Save dataset details to Firestore
+//             await saveDatasetDetails(datasetName, repo_id, userId, license, visibility, models, tags, submissionTime, fileSize, uploadedAt);
+//             res.status(200).json({ repo_id });
+//         } catch (saveError) {
+//             console.error(`Error saving dataset details: ${saveError.message}`);
+//             return res.status(500).json({ error: 'Failed to save dataset details.' });
+//         }
+//     });
+
+// });
 
 // Completed Jobs
 app.post('/complete-training', async (req, res) => {
@@ -146,49 +280,42 @@ app.post('/inference', async (req, res) => {
 });
 
 app.get('/wandb-data', async (req, res) => {
-        console.log('Endpoint /wandb-data reached');
-    try {
-        // Extract query parameters
-        const { projectName } = req.query;
+    console.log('Endpoint /wandb-data reached');
 
-        console.log(`Request to wandb: ${JSON.stringify(req.query)}`);
+    // Extract query parameters
+    const { projectName } = req.query;
 
-        if (!projectName) {
-            console.error('Project name is required');
-            return res.status(400).send({ error: 'Project name is required' });
+    if (!projectName) {
+        return res.status(400).send({ error: 'Project name is required' });
+    }
+
+    // Call the Python script with the provided parameter
+    const command = `python test.py ${projectName}`;
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing script: ${error.message}`);
+            res.status(500).send({ error: 'Failed to execute script' });
+            return;
+        }
+        if (stderr) {
+            console.error(`Script error: ${stderr}`);
+            res.status(500).send({ error: 'Script error' });
+            return;
         }
 
-        // Call the Python script with the provided parameter
-        const command = `python test.py ${projectName}`;
-        console.log(`Executing command: ${command}`);
+        // Log the stdout to check the script's output
+        console.log(`Script output: ${stdout}`);
 
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error executing script: ${error.message}`);
-                return res.status(500).send({ error: 'Failed to execute script' });
-            }
-            if (stderr) {
-                console.error(`Script error: ${stderr}`);
-                return res.status(500).send({ error: 'Script error' });
-            }
-
-            // Log the stdout to check the script's output
-            console.log(`Script output: ${stdout}`);
-
-            // Send the output from the Python script as JSON
-            try {
-                const data = JSON.parse(stdout);
-                console.log('Parsed data:', data);
-                return res.status(200).json(data);
-            } catch (err) {
-                console.error(`Failed to parse script output: ${err.message}`);
-                return res.status(500).send({ error: 'Failed to parse script output' });
-            }
-        });
-    } catch (err) {
-        console.error(`Unexpected error: ${err.message}`);
-        return res.status(500).send({ error: 'Unexpected error occurred' });
-    }
+        // Send the output from the Python script as JSON
+        try {
+            const data = JSON.parse(stdout);
+            console.log('Parsed data:', data);
+            res.status(200).json(data);
+        } catch (err) {
+            console.error(`Failed to parse script output: ${err.message}`);
+            res.status(500).send({ error: 'Failed to parse script output' });
+        }
+    });
 });
 
 // app.get('/wandb-data', async (req, res) => {

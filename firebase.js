@@ -15,6 +15,30 @@ admin.initializeApp({
 const db = admin.firestore();
 const storage = getStorage();
 
+async function saveDatasetDetails(datasetName, repoId, userId, license, visibility, models, tags, submissionTime, fileSize, uploadedAt) {
+  const datasetsRef = db.collection('datasets');
+  try {
+    const newDataset = {
+      datasetName,
+      repoId,
+      userId,
+      license,
+      visibility,
+      models,
+      tags,
+      submissionTime,
+      fileSize,
+      uploadedAt,
+      usage: 0
+    };
+    await datasetsRef.add(newDataset);
+    console.log(`Dataset details saved with datasetName: ${datasetName}`);
+  } catch (error) {
+    console.error("Error saving dataset details:", error);
+    throw error;
+  }
+}
+
 async function uploadFile(bucketPath, fileBuffer, mimeType) {
   console.log("Uploading file:", fileBuffer);
   const file = storage.bucket().file(bucketPath);
@@ -34,13 +58,16 @@ async function uploadFile(bucketPath, fileBuffer, mimeType) {
 }
 
 // Completed Jobs
-async function saveCompletedJob(jobId, minerId, huggingFaceRepoId) {
+async function saveCompletedJob(jobId, minerId, huggingFaceRepoId, loss, accuracy, totalPipelineTime) {
   const completedJobsRef = db.collection('completed_jobs');
   try {
       const newJob = {
           jobId: jobId,
           minerId: minerId,
           huggingFaceRepoId: huggingFaceRepoId,
+          loss,
+          accuracy,
+          totalPipelineTime,
           completedAt: admin.firestore.FieldValue.serverTimestamp()
       };
       await completedJobsRef.add(newJob);
@@ -50,6 +77,35 @@ async function saveCompletedJob(jobId, minerId, huggingFaceRepoId) {
       throw error;
   }
 }
+
+async function updatestatus(docId, status, completedAt) {
+  const docRef = db.collection('fine_tuning_jobs').doc(docId);
+  try {
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+          console.log('No such document!');
+          return null;
+      }
+
+      const updateData = { status: status };
+
+      // Check if completedAt is provided
+      if (completedAt) {
+          updateData['completed_at'] = admin.firestore.FieldValue.serverTimestamp();
+      } else {
+          // Check if completed_at field does not exist and set the server timestamp
+          if (!doc.data().hasOwnProperty('completed_at')) {
+              updateData['completed_at'] = admin.firestore.FieldValue.serverTimestamp();
+          }
+      }
+
+      await docRef.update(updateData);
+  } catch (error) {
+      console.error("Error updating job status:", error);
+  }
+}
+
 
 async function addTrainingJob(jobData, paramsCount, uploadedTrainingFile, uploadedValidationFile, trainingScriptFile) {
   try {
@@ -162,25 +218,25 @@ async function fetchJobDetailsById(docId) {
   }
 }
 
-async function updatestatus(docId, status){
-  const docRef = db.collection('fine_tuning_jobs').doc(docId);
-  try {
+// async function updatestatus(docId, status){
+//   const docRef = db.collection('fine_tuning_jobs').doc(docId);
+//   try {
     
-    const doc = await docRef.get();
+//     const doc = await docRef.get();
 
-    if (!doc.exists) {
-      console.log('No such document!');
-      return null;
-    }
+//     if (!doc.exists) {
+//       console.log('No such document!');
+//       return null;
+//     }
 
-    // Update the job status to 'running'
-    await docRef.update({
-      status: status
-    });
-  } catch (error) {
-    console.error("Error updating job status:", error);
-  }
-}
+//     // Update the job status to 'running'
+//     await docRef.update({
+//       status: status
+//     });
+//   } catch (error) {
+//     console.error("Error updating job status:", error);
+//   }
+// }
 
 async function start_training(docId, minerId, systemDetails) {
   const docRef = db.collection('fine_tuning_jobs').doc(docId);
@@ -201,7 +257,7 @@ async function start_training(docId, minerId, systemDetails) {
 
     // Create a job execution record
     const jobExecutionData = {
-      userId: doc.data().userId, // Assuming the original job document has a userId field
+      userId: doc.data().userId,
       minerId: minerId,
       jobId: docId,
       systemDetails: systemDetails,
@@ -335,5 +391,5 @@ async function saveSystemDetails(minerId, systemDetails) {
 
 
 module.exports = {
-  addTrainingJob, updatestatus, saveCompletedJob, logMinerListening, saveSystemDetails, authenticateMiner, start_training, registerMiner, fetchPendingTrainingJobs, fetchPendingJobDetails, fetchJobDetailsById
+  addTrainingJob, saveDatasetDetails, updatestatus, saveCompletedJob, logMinerListening, saveSystemDetails, authenticateMiner, start_training, registerMiner, fetchPendingTrainingJobs, fetchPendingJobDetails, fetchJobDetailsById
 };
