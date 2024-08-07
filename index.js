@@ -76,7 +76,7 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
     }
 
     const file = req.file;
-    const model = models[0]; // Use the first model in the array
+    const model = models; // Use the first model in the array
 
     // Use /tmp directory for file operations
     const tempFilePath = path.join('/tmp', file.originalname);
