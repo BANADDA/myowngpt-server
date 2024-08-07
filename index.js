@@ -64,7 +64,6 @@ app.get('/', (req, res) => {
     res.send('Hello World');
 });
 
-// Endpoint to create a dataset
 app.post('/create-dataset', upload.single('file'), async (req, res) => {
     console.log("Dataset request: ", req.body);
 
@@ -76,7 +75,19 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
     }
 
     const file = req.file;
-    const model = models; // Use the first model in the array
+    const modelName = models[0].toLowerCase(); // Convert model type to lowercase
+
+    // Determine model type based on keywords
+    let normalizedModelType;
+    if (modelName.includes('gpt')) {
+        normalizedModelType = 'gpt2';
+    } else if (modelName.includes('llama')) {
+        normalizedModelType = 'llama2';
+    } else if (modelName.includes('openelm')) {
+        normalizedModelType = 'openelm';
+    } else {
+        return res.status(400).json({ error: `Invalid model type: ${modelName}. Choose from models containing gpt, llama, or openelm.` });
+    }
 
     // Use /tmp directory for file operations
     const tempFilePath = path.join('/tmp', file.originalname);
@@ -89,7 +100,7 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
 
     // Call the Python script to create and upload the dataset
     const pythonScript = 'dataset.py'; // Update this path to your actual Python script
-    const command = `python ${pythonScript} ${tempFilePath} ${model} ${datasetName}`;
+    const command = `python3 ${pythonScript} ${tempFilePath} ${normalizedModelType} ${datasetName}`;
 
     exec(command, async (error, stdout, stderr) => {
         // Delete the temporary file after the process is complete
@@ -126,6 +137,69 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
         }
     });
 });
+
+// // Endpoint to create a dataset
+// app.post('/create-dataset', upload.single('file'), async (req, res) => {
+//     console.log("Dataset request: ", req.body);
+
+//     const { datasetName, license, visibility, models, tags, submissionTime, fileName, fileSize, uploadedAt } = req.body;
+
+//     // Validate incoming request data
+//     if (!datasetName || !req.file || !models || models.length === 0) {
+//         return res.status(400).json({ error: 'Invalid request data. Ensure datasetName, file, and models are provided.' });
+//     }
+
+//     const file = req.file;
+//     const model = models; // Use the first model in the array
+
+//     // Use /tmp directory for file operations
+//     const tempFilePath = path.join('/tmp', file.originalname);
+
+//     // Save the uploaded file to a temporary location
+//     fs.writeFileSync(tempFilePath, file.buffer);
+
+//     // Log the dataset request
+//     console.log("Dataset request: ", req.body);
+
+//     // Call the Python script to create and upload the dataset
+//     const pythonScript = 'dataset.py'; // Update this path to your actual Python script
+//     const command = `python ${pythonScript} ${tempFilePath} ${model} ${datasetName}`;
+
+//     exec(command, async (error, stdout, stderr) => {
+//         // Delete the temporary file after the process is complete
+//         fs.unlink(tempFilePath, (unlinkErr) => {
+//             if (unlinkErr) {
+//                 console.error(`Error deleting temp file: ${unlinkErr.message}`);
+//             } else {
+//                 console.log(`Temporary file deleted: ${tempFilePath}`);
+//             }
+//         });
+
+//         if (error) {
+//             console.error(`Error executing Python script: ${error.message}`);
+//             return res.status(500).json({ error: 'Failed to create dataset.' });
+//         }
+//         if (stderr) {
+//             console.error(`Python script error: ${stderr}`);
+//             return res.status(500).json({ error: 'Error in Python script execution.' });
+//         }
+
+//         // Assuming the Python script returns the repo_id
+//         const repo_id = stdout.trim();
+
+//         // Extract userId from the datasetName
+//         const userId = datasetName.split('_')[0];
+
+//         try {
+//             // Save dataset details to Firestore
+//             await saveDatasetDetails(datasetName, repo_id, userId, license, visibility, models, tags, submissionTime, fileSize, uploadedAt);
+//             res.status(200).json({ repo_id });
+//         } catch (saveError) {
+//             console.error(`Error saving dataset details: ${saveError.message}`);
+//             return res.status(500).json({ error: 'Failed to save dataset details.' });
+//         }
+//     });
+// });
 
 // Endpoint to create a dataset
 // app.post('/create-dataset', upload.single('file'), async (req, res) => {
