@@ -5,7 +5,7 @@ import tempfile
 from typing import Literal
 
 import pandas as pd
-from huggingface_hub import HfApi, create_repo
+from huggingface_hub import HfApi, HfFolder, create_repo
 
 
 class DatasetCreator:
@@ -83,6 +83,9 @@ class DatasetCreator:
             raise ValueError("Dataset not created. Call create_dataset() first.")
         
         try:
+            # Save the token for the session
+            HfFolder.save_token(token)
+            
             api = HfApi()
             user = api.whoami(token=token)["name"]
             repo_id = f"{user}/{repo_name}"
@@ -117,12 +120,6 @@ class DatasetCreator:
         except Exception as e:
             print(f"Error uploading to Hugging Face: {e}")
             raise
-
-
-def login_to_huggingface(token: str):
-    api = HfApi()
-    api.set_access_token(token)
-    print("Logged in to Hugging Face")
 
 
 def create_and_upload_dataset(
@@ -168,7 +165,6 @@ def create_and_upload_dataset(
 
     try:
         hf_token = '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'
-        login_to_huggingface(hf_token)  # Ensure login is called
         repo_id = creator.upload_to_huggingface(hf_token, repo_name)
         print(f"Repository ID: {repo_id}")
         return repo_id
