@@ -16,11 +16,12 @@ class DatasetCreator:
         self.processed_dataframe = None
         self.dataset_type = None
 
-    def create_dataset(self, model_type: Literal['gpt2', 'llama2', 'openelm']):
+    def create_dataset(self, model_type: Literal['gpt2', 'llama2', 'openelm']) -> str:
         """
         Create a dataset based on the specified model type.
 
         :param model_type: The type of model to create the dataset for ('gpt2', 'llama2', or 'openelm').
+        :return: The dataset type indicating successful creation.
         """
         creation_methods = {
             'gpt2': self._create_gpt2_dataset,
@@ -35,6 +36,7 @@ class DatasetCreator:
             creation_methods[model_type]()
             self.dataset_type = model_type
             print(f"Dataset created successfully for model type: {model_type}.")
+            return self.dataset_type
         except Exception as e:
             print(f"Error during dataset creation: {e}")
             raise
@@ -104,7 +106,8 @@ class DatasetCreator:
             repo_id = f"{user}/{repo_name}"
 
             create_repo(repo_id, repo_type="dataset", token=token, exist_ok=True)
-            
+            print(f"Repository created with ID: {repo_id}")
+
             with tempfile.TemporaryDirectory() as tmp_dir:
                 data_dir = os.path.join(tmp_dir, "data")
                 os.makedirs(data_dir)
@@ -180,14 +183,15 @@ def create_and_upload_dataset(
     
     try:
         creator = DatasetCreator(dataframe, question_col, response_col)
-        creator.create_dataset(model_type)
+        dataset_type = creator.create_dataset(model_type)
+        print(f"Dataset created: {dataset_type}")
     except Exception as e:
         print(f"Error creating dataset: {e}")
         raise
 
     try:
-        # Use the predefined Hugging Face API token
-        hf_token = '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'
+        # Ensure you replace this with your valid Hugging Face API token
+        hf_token = 'your_hugging_face_api_token_here'
         repo_id = creator.upload_to_huggingface(hf_token, repo_name)
         print(f"Repository ID: {repo_id}")
         return repo_id
