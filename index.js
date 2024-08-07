@@ -75,7 +75,7 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
     }
 
     const file = req.file;
-    const modelName = models[0].toLowerCase(); // Convert model type to lowercase
+    const modelName = models.toLowerCase(); // Convert model type to lowercase
 
     // Determine model type based on keywords
     let normalizedModelType;
