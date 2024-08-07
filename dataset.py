@@ -17,12 +17,6 @@ class DatasetCreator:
         self.dataset_type = None
 
     def create_dataset(self, model_type: Literal['gpt2', 'llama2', 'openelm']) -> str:
-        """
-        Create a dataset based on the specified model type.
-
-        :param model_type: The type of model to create the dataset for ('gpt2', 'llama2', or 'openelm').
-        :return: The dataset type indicating successful creation.
-        """
         creation_methods = {
             'gpt2': self._create_gpt2_dataset,
             'llama2': self._create_llama2_dataset,
@@ -68,11 +62,6 @@ class DatasetCreator:
         })
 
     def show_sample(self, n: int = 1):
-        """
-        Show a sample of n rows from the processed DataFrame.
-
-        :param n: Number of rows to display (default is 1).
-        """
         if self.processed_dataframe is None:
             print("Dataset has not been processed yet.")
             return
@@ -90,13 +79,6 @@ class DatasetCreator:
                 print(self.processed_dataframe.iloc[i]['text'])
 
     def upload_to_huggingface(self, token: str, repo_name: str) -> str:
-        """
-        Upload the processed dataset to Hugging Face.
-
-        :param token: Hugging Face API token for authentication.
-        :param repo_name: Name of the repository to be created/updated on Hugging Face.
-        :return: Repository ID of the created/updated dataset.
-        """
         if self.processed_dataframe is None:
             raise ValueError("Dataset not created. Call create_dataset() first.")
         
@@ -137,21 +119,18 @@ class DatasetCreator:
             raise
 
 
+def login_to_huggingface(token: str):
+    api = HfApi()
+    api.set_access_token(token)
+    print("Logged in to Hugging Face")
+
+
 def create_and_upload_dataset(
     file_path: str,
     model_type: Literal['gpt2', 'llama2', 'openelm'],
     repo_name: str,
 ) -> str:
-    """
-    Create and upload a dataset to Hugging Face in one go.
-
-    :param file_path: Path to the input file (CSV, XLS, or XLSX) containing questions and responses.
-    :param model_type: Type of model to create the dataset for ('gpt2', 'llama2', or 'openelm').
-    :param repo_name: Name of the repository to create/update on Hugging Face.
-    :return: Repository ID of the created/updated dataset.
-    """
     try:
-        # Read the file into a DataFrame
         if file_path.endswith('.csv'):
             dataframe = pd.read_csv(file_path)
         elif file_path.endswith(('.xls', '.xlsx')):
@@ -162,11 +141,9 @@ def create_and_upload_dataset(
         print(f"Error reading file: {e}")
         raise
     
-    # Automatically detect question and response columns
     question_col = None
     response_col = None
     
-    # Attempt to identify the correct columns based on common patterns
     try:
         for col in dataframe.columns:
             lower_col = col.lower()
@@ -190,8 +167,8 @@ def create_and_upload_dataset(
         raise
 
     try:
-        # Ensure you replace this with your valid Hugging Face API token
-        hf_token = 'your_hugging_face_api_token_here'
+        hf_token = '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'
+        login_to_huggingface(hf_token)  # Ensure login is called
         repo_id = creator.upload_to_huggingface(hf_token, repo_name)
         print(f"Repository ID: {repo_id}")
         return repo_id
