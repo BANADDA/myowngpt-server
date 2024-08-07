@@ -4,7 +4,7 @@ import os
 import tempfile
 
 import pandas as pd
-from huggingface_hub import HfApi, create_repo
+from huggingface_hub import HfApi, create_repo, upload_folder
 
 # Predefine the Hugging Face API token
 HF_TOKEN = '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'
@@ -59,7 +59,18 @@ class DatasetCreator:
             else:
                 parquet_path = os.path.join(data_dir, "data.parquet")
                 self.processed_dataframe.to_parquet(parquet_path, index=False)
-            api.upload_folder(folder_path=data_dir, repo_id=repo_id, repo_type="dataset", path_in_repo="", token=HF_TOKEN)
+            
+            # Upload the folder to Hugging Face
+            upload_folder(
+                folder_path=data_dir, 
+                repo_id=repo_id, 
+                repo_type="dataset", 
+                path_in_repo="", 
+                token=HF_TOKEN
+            )
+        
+        # Ensure this print statement is executed after the upload is complete
+        print(f"Dataset uploaded successfully. Repository ID: {repo_id}")
         return repo_id
 
 def main(file_path, model_type, repo_name):
