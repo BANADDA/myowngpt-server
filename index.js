@@ -99,7 +99,7 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
     console.log("Dataset request: ", req.body);
 
     // Call the Python script to create and upload the dataset
-    const pythonScript = 'dataset.py'; // Update this path to your actual Python script
+    const pythonScript = 'dataset.py';
     const command = `python3 ${pythonScript} ${tempFilePath} ${normalizedModelType} ${datasetName}`;
 
     exec(command, async (error, stdout, stderr) => {
@@ -116,12 +116,11 @@ app.post('/create-dataset', upload.single('file'), async (req, res) => {
             console.error(`Error executing Python script: ${error.message}`);
             return res.status(500).json({ error: 'Failed to create dataset.' });
         }
-        if (stderr) {
-            console.error(`Python script error: ${stderr}`);
-            return res.status(500).json({ error: 'Error in Python script execution.' });
-        }
+        // if (stderr) {
+        //     console.error(`Python script error: ${stderr}`);
+        //     return res.status(500).json({ error: 'Error in Python script execution.' });
+        // }
 
-        // Assuming the Python script returns the repo_id
         const repo_id = stdout.trim();
 
         // Extract userId from the datasetName

@@ -61,23 +61,6 @@ class DatasetCreator:
             )
         })
 
-    def show_sample(self, n: int = 1):
-        if self.processed_dataframe is None:
-            print("Dataset has not been processed yet.")
-            return
-
-        print(f"Showing {n} sample(s) of {self.dataset_type} dataset:")
-        for i in range(min(n, len(self.processed_dataframe))):
-            print(f"\nSample {i+1}:")
-            if self.dataset_type == 'openelm':
-                messages = self.processed_dataframe.iloc[i]['messages']
-                for message in messages:
-                    print(f"Role: {message['role']}")
-                    print(f"Content: {message['content']}")
-                    print()
-            else:
-                print(self.processed_dataframe.iloc[i]['text'])
-
     def upload_to_huggingface(self, token: str, repo_name: str) -> str:
         if self.processed_dataframe is None:
             raise ValueError("Dataset not created. Call create_dataset() first.")
